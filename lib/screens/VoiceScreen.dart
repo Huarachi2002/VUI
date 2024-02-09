@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:dialog_flowtter/dialog_flowtter.dart';
+import 'package:flutter/material.dart';
 
 class VoiceScreen extends StatefulWidget {
   const VoiceScreen({super.key});
@@ -21,11 +23,17 @@ class _VoiceScreenState extends State<VoiceScreen> {
   FlutterTts _flutterTts = FlutterTts();
   Map? _currentVoice;
   List<Map> _voices = [];
+  //dialogFlow
+  late DialogFlowtter dialogFlowtter;
+  String? textResponse;
+  List<Map<String, dynamic>> messages = [];
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
+    DialogFlowtter.fromFile().then((instance) => dialogFlowtter = instance);
+
     _initSpeech();
     initTTS();
   }
@@ -68,6 +76,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
   }
 
   void _onSpeechResult(SpeechRecognitionResult result) {
+    sendMessage(result.recognizedWords);
     setState(() {
       _lastWords = result.recognizedWords;
       _cofidence = result.confidence;
@@ -123,7 +132,9 @@ class _VoiceScreenState extends State<VoiceScreen> {
             repeat: false,
             child: FloatingActionButton(
               onPressed:() {
-                _flutterTts.speak(_lastWords);
+                print(textResponse);
+                if(textResponse != null)
+                  _flutterTts.speak(textResponse!);
               },
               tooltip: 'Reproducir',
               child: const Icon(Icons.volume_down_alt),
@@ -133,5 +144,25 @@ class _VoiceScreenState extends State<VoiceScreen> {
         ]
       ),
     );
+  }
+  sendMessage(String text) async {
+    if (text.isEmpty) {
+      print('Message is empty');
+    } else {
+      setState(() {
+        addMessage(Message(text: DialogText(text: [text])), true);
+      });
+
+      DetectIntentResponse response = await dialogFlowtter.detectIntent(queryInput: QueryInput(text: TextInput(text: text, languageCode: "es")));
+      textResponse = response.text;
+      if (response.message == null) return;
+      setState(() {
+        addMessage(response.message!);
+      });
+    }
+  }
+
+  addMessage(Message message, [bool isUserMessage = false]) {
+    messages.add({'message': message, 'isUserMessage': isUserMessage});
   }
 }
